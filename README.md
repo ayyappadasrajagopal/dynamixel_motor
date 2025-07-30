@@ -215,3 +215,136 @@ void loop() {
   moveMotorDegree(DXL_ID_2, 5.7);
   delay(1000);
 }
+
+
+## ✅ Step-by-step Python code for Raspberry Pi:
+
+#!/usr/bin/env python3
+import os
+import time
+from dynamixel_sdk import *  # Uses Dynamixel SDK library
+
+# Control table address for X-Series
+ADDR_TORQUE_ENABLE      = 64
+ADDR_GOAL_POSITION      = 116
+ADDR_PRESENT_POSITION   = 132
+
+# Protocol version
+PROTOCOL_VERSION = 2.0
+
+# Default setting
+DXL_ID = 1
+BAUDRATE = 57600
+DEVICENAME = '/dev/ttyACM0'  # OpenCR usually mounts here (check with `ls /dev/tty*`)
+
+TORQUE_ENABLE  = 1
+TORQUE_DISABLE = 0
+DXL_MIN_POSITION_VALUE = 100    # Define your own limits
+DXL_MAX_POSITION_VALUE = 1000
+DXL_MOVING_STATUS_THRESHOLD = 20  # Threshold for position error
+
+# Initialize PortHandler and PacketHandler
+portHandler = PortHandler(DEVICENAME)
+packetHandler = PacketHandler(PROTOCOL_VERSION)
+
+def open_port():
+    if portHandler.openPort():
+        print("Port opened successfully")
+    else:
+        print("Failed to open the port")
+        quit()
+
+    if portHandler.setBaudRate(BAUDRATE):
+        print(f"Baudrate set to {BAUDRATE}")
+    else:
+        print("Failed to set baudrate")
+        quit()
+
+def enable_torque():
+    dxl_comm_result, dxl_error = packetHandler.write1ByteTxRx(portHandler, DXL_ID, ADDR_TORQUE_ENABLE, TORQUE_ENABLE)
+    if dxl_comm_result != COMM_SUCCESS:
+        print(f"Torque Enable Communication Error: {packetHandler.getTxRxResult(dxl_comm_result)}")
+    elif dxl_error != 0:
+        print(f"Torque Enable Error: {packetHandler.getRxPacketError(dxl_error)}")
+    else:
+        print("Torque enabled")
+
+def disable_torque():
+    dxl_comm_result, dxl_error = packetHandler.write1ByteTxRx(portHandler, DXL_ID, ADDR_TORQUE_ENABLE, TORQUE_DISABLE)
+    if dxl_comm_result != COMM_SUCCESS:
+        print(f"Torque Disable Communication Error: {packetHandler.getTxRxResult(dxl_comm_result)}")
+    elif dxl_error != 0:
+        print(f"Torque Disable Error: {packetHandler.getRxPacketError(dxl_error)}")
+    else:
+        print("Torque disabled")
+
+def move_motor(position):
+    dxl_comm_result, dxl_error = packetHandler.write4ByteTxRx(portHandler, DXL_ID, ADDR_GOAL_POSITION, position)
+    if dxl_comm_result != COMM_SUCCESS:
+        print(f"Move Motor Communication Error: {packetHandler.getTxRxResult(dxl_comm_result)}")
+    elif dxl_error != 0:
+        print(f"Move Motor Error: {packetHandler.getRxPacketError(dxl_error)}")
+    else:
+        print(f"Motor moved to position {position}")
+
+def read_position():
+    dxl_present_position, dxl_comm_result, dxl_error = packetHandler.read4ByteTxRx(portHandler, DXL_ID, ADDR_PRESENT_POSITION)
+    if dxl_comm_result != COMM_SUCCESS:
+        print(f"Read Position Communication Error: {packetHandler.getTxRxResult(dxl_comm_result)}")
+    elif dxl_error != 0:
+        print(f"Read Position Error: {packetHandler.getRxPacketError(dxl_error)}")
+    else:
+        print(f"Current Position: {dxl_present_position}")
+    return dxl_present_position
+
+# Main control loop
+if __name__ == "__main__":
+    open_port()
+    enable_torque()
+
+    try:
+        for i in range(3):
+            print(f"\nMoving to max position {DXL_MAX_POSITION_VALUE}")
+            move_motor(DXL_MAX_POSITION_VALUE)
+            time.sleep(2)
+
+            print("Reading position...")
+            read_position()
+            time.sleep(1)
+
+            print(f"\nMoving to min position {DXL_MIN_POSITION_VALUE}")
+            move_motor(DXL_MIN_POSITION_VALUE)
+            time.sleep(2)
+
+            print("Reading position...")
+            read_position()
+            time.sleep(1)
+
+    except KeyboardInterrupt:
+        print("\nInterrupted by user")
+
+    finally:
+        disable_torque()
+        portHandler.closePort()
+        print("Port closed, program terminated")
+
+✅ How to Run:
+
+    Install the SDK:
+
+pip install dynamixel-sdk
+
+Save the script, e.g., dynamixel_control.py, then run:
+
+    python3 dynamixel_control.py
+
+✅ Check Device Name:
+
+On the Raspberry Pi, verify the OpenCR connection:
+
+ls /dev/ttyACM*
+
+Typically, OpenCR shows as /dev/ttyACM0. If not, adjust DEVICENAME accordingly.
+✅ Optional: Use dynamixel_workbench on OpenCR
+
+If you flashed OpenCR with Dynamixel Workbench firmware, this Python code works directly. Otherwise, ensure firmware supports Protocol 2.0 communication via USB.
